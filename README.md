@@ -15,10 +15,10 @@ Use Node.js 22.12+, 24, or 26 and npm.
 
 ```bash
 npm install
-npm run dev:electron
+npm run dev
 ```
 
-Quasar installs the separate Electron workspace dependencies on the first Electron launch. Electron downloads its platform runtime when first needed. For a browser preview, run `npm run dev`.
+Quasar installs the separate Electron workspace dependencies on the first Electron launch. Electron downloads its platform runtime when first needed. For a browser preview, run `npm run dev:browser`. The `dev:electron` command remains available as an alias for `dev`.
 
 The first launch shows clearly labeled sample data. Choose **New budget** to start an empty budget with starter categories, or **Open budget** to use an existing file.
 
