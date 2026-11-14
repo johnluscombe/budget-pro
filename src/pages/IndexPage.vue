@@ -108,6 +108,13 @@
                     :transaction-count="activeMonth.transactions.length"
                     @edit-income="showModal('income')" />
 
+                <BudgetIncomeEntries
+                    :entries="activeMonth.incomes"
+                    :read-only="readOnly"
+                    @add="showModal('income')"
+                    @edit="editIncome"
+                    @remove="removeIncome" />
+
                 <div class="content-columns">
                     <section class="budget-content">
                         <div class="section-heading">
@@ -147,7 +154,10 @@
                         </div>
 
                         <template v-if="view === 'budget'">
-                            <div class="allocation-banner">
+                            <div
+                                class="allocation-banner"
+                                data-testid="ready-to-assign"
+                                role="status">
                                 <q-icon
                                     :name="
                                         totals.leftToBudget < 0
@@ -269,6 +279,7 @@ import { t } from "../i18n";
 
 import BudgetSidebar from "../components/budget/BudgetSidebar.vue";
 import BudgetToolbar from "../components/budget/BudgetToolbar.vue";
+import BudgetIncomeEntries from "../components/budget/BudgetIncomeEntries.vue";
 import MonthlySummary from "../components/budget/MonthlySummary.vue";
 import BudgetGroupCard from "../components/budget/BudgetGroupCard.vue";
 import BudgetTransactions from "../components/budget/BudgetTransactions.vue";
@@ -318,6 +329,8 @@ const {
     editCategory,
     planCategory,
     editExpense,
+    editIncome,
+    removeIncome,
     submitForm,
     deleteConfirmation,
     deleteTitle,

@@ -120,7 +120,15 @@ describe("BudgetFileService", () => {
         await service.save(document, budgetPath);
         const before = await fs.readFile(budgetPath, "utf8");
         const invalid = structuredClone(document);
-        invalid.months["2026-11"]!.income = -1;
+        invalid.months["2026-11"]!.incomes = [
+            {
+                id: "invalid-income",
+                amount: -1,
+                date: "2026-11-01",
+                source: "Salary",
+                note: ""
+            }
+        ];
         await expect(service.save(invalid, budgetPath)).rejects.toThrow();
         expect(await fs.readFile(budgetPath, "utf8")).toBe(before);
     });

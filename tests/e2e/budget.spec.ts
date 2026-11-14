@@ -92,11 +92,21 @@ async function createBudget(name: string) {
 }
 
 async function setIncome(value: string) {
-    await page.getByTestId("edit-income").click();
+    const existing = page.getByRole("button", {
+        name: "Edit income Salary",
+        exact: true
+    });
+    const editing = (await existing.count()) > 0;
+    if (editing) await existing.click();
+    else await page.getByTestId("edit-income").click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Income", { exact: true }).fill(value);
+    await dialog.getByLabel("Source", { exact: true }).fill("Salary");
     await dialog
-        .getByRole("button", { name: "Update income", exact: true })
+        .getByRole("button", {
+            name: editing ? "Update income" : "Add income",
+            exact: true
+        })
         .click();
     await expect(dialog).not.toBeVisible();
 }
@@ -140,7 +150,8 @@ test.beforeEach(async () => {
     await launch();
 });
 
-test.afterEach(async ({}, testInfo) => {
+test.afterEach(async () => {
+    const testInfo = test.info();
     if (testInfo.status !== testInfo.expectedStatus && application) {
         const screenshot = await page.screenshot().catch(() => undefined);
         if (screenshot) {
@@ -165,7 +176,8 @@ test.afterEach(async ({}, testInfo) => {
     );
 });
 
-test("plans a category, records spending, saves, and restores the previous file", async ({}, testInfo) => {
+test("plans a category, records spending, saves, and restores the previous file", async () => {
+    const testInfo = test.info();
     await page.screenshot({
         path: testInfo.outputPath("sample-overview.png"),
         fullPage: true
@@ -220,7 +232,7 @@ test("plans a category, records spending, saves, and restores the previous file"
     await expect(page.getByTestId("summary-planned")).toContainText("$500.00");
     await expect(page.getByTestId("summary-spent")).toContainText("$42.35");
     await expect(page.getByTestId("summary-remaining")).toContainText(
-        "$5,957.65"
+        "$5,500.00"
     );
     const category = page
         .getByTestId("category-row")
@@ -245,7 +257,7 @@ test("plans a category, records spending, saves, and restores the previous file"
     );
     expect(travel.categories[0].name).toBe("Summer getaway");
     const savedMonth = Object.values(saved.months)[0] as {
-        income: number;
+        incomes: { amount: number }[];
         allocations: Record<string, number>;
         transactions: Array<{
             payee: string;
@@ -253,7 +265,9 @@ test("plans a category, records spending, saves, and restores the previous file"
             categoryId: string;
         }>;
     };
-    expect(savedMonth.income).toBe(600_000);
+    expect(
+        savedMonth.incomes.reduce((total, entry) => total + entry.amount, 0)
+    ).toBe(600_000);
     expect(savedMonth.allocations[travel.categories[0].id]).toBe(50_000);
     expect(savedMonth.transactions[0]).toMatchObject({
         payee: "Train tickets",
@@ -441,7 +455,7 @@ test("moves a category, edits expenses, and protects transaction history during 
     await expect(dialog).not.toBeVisible();
     await expect(page.getByTestId("summary-spent")).toContainText("$35.50");
     await expect(page.getByTestId("summary-remaining")).toContainText(
-        "$964.50"
+        "$900.00"
     );
     await page
         .getByRole("button", {
@@ -454,7 +468,7 @@ test("moves a category, edits expenses, and protects transaction history during 
     await expect(dialog).not.toBeVisible();
     await expect(page.getByTestId("summary-spent")).toContainText("$0.00");
     await expect(page.getByTestId("summary-remaining")).toContainText(
-        "$1,000.00"
+        "$900.00"
     );
     await expect(
         page.getByRole("button", {
@@ -564,13 +578,17 @@ test("uses native File commands and saves safely when closing an unsaved budget"
     const saved = JSON.parse(await readFile(closingFile, "utf8"));
     expect(saved.name).toBe("Saved on close");
     expect(
-        Object.values(saved.months).map(
-            month => (month as { income: number }).income
+        Object.values(saved.months).map(month =>
+            (month as { incomes: { amount: number }[] }).incomes.reduce(
+                (total, entry) => total + entry.amount,
+                0
+            )
         )
     ).toContain(70_000);
 });
 
-test("opens an already-owned budget read-only, supports a copy, and reloads after unlocking", async ({}, testInfo) => {
+test("opens an already-owned budget read-only, supports a copy, and reloads after unlocking", async () => {
+    const testInfo = test.info();
     await createBudget("Shared household");
     await setIncome("1000");
     const filename = join(directory, "shared.budget.json");
@@ -682,4 +700,77 @@ test("opens an already-owned budget read-only, supports a copy, and reloads afte
     await expect
         .poll(() => readFile(lockPath, "utf8").catch(() => ""))
         .toBe("");
+});
+
+test("funds categories from multiple income entries, edits and deletes income, and restores entries", async () => {
+    await createBudget("Income ledger");
+    await setIncome("1000");
+    await page.getByTestId("edit-income").click();
+    let dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Income", { exact: true }).fill("250.25");
+    await dialog.getByLabel("Source", { exact: true }).fill("Freelance");
+    await dialog.getByLabel("Note", { exact: true }).fill("Website work");
+    await dialog
+        .getByRole("button", { name: "Add income", exact: true })
+        .click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByTestId("summary-income")).toContainText("$1,250.25");
+    await expect(page.getByTestId("summary-remaining")).toContainText(
+        "$1,250.25"
+    );
+    await page
+        .getByRole("button", { name: "Plan Groceries", exact: true })
+        .click();
+    dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Planned amount", { exact: true }).fill("1100");
+    await dialog
+        .getByRole("button", { name: "Update plan", exact: true })
+        .click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByTestId("summary-remaining")).toContainText(
+        "$150.25"
+    );
+    await page
+        .getByRole("button", { name: "Edit income Freelance", exact: true })
+        .click();
+    dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Note", { exact: true })).toHaveValue(
+        "Website work"
+    );
+    await dialog.getByLabel("Income", { exact: true }).fill("200");
+    await dialog
+        .getByRole("button", { name: "Update income", exact: true })
+        .click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByTestId("summary-remaining")).toContainText(
+        "$100.00"
+    );
+    const filename = join(directory, "income-ledger.budget.json");
+    await selectSaveFile(filename);
+    await page.getByTestId("save-budget").click();
+    await expect(page.locator(".save-state")).toHaveText("All changes saved");
+    await closeApplication();
+    await launch();
+    await expect(page.getByTestId("income-entries")).toContainText(
+        "Website work"
+    );
+    await expect(page.getByTestId("summary-income")).toContainText("$1,200.00");
+    await page
+        .getByRole("button", { name: "Delete income Freelance", exact: true })
+        .click();
+    dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.getByTestId("summary-income")).toContainText("$1,000.00");
+    await expect(page.getByTestId("summary-remaining")).toContainText(
+        "-$100.00"
+    );
+    await expect(page.getByTestId("ready-to-assign")).toContainText(
+        "planned beyond your income"
+    );
+    await page.getByTestId("next-month").click();
+    await expect(page.getByTestId("summary-income")).toContainText("$0.00");
+    await expect(page.getByTestId("income-entries")).not.toContainText(
+        "Salary"
+    );
 });

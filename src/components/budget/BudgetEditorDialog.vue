@@ -57,7 +57,7 @@
                         :model-value="form.amount"
                         @update:model-value="updateField('amount', $event)"
                         outlined
-                        :autofocus="modal !== 'expense'"
+                        :autofocus="modal === 'plan'"
                         :label="
                             modal === 'income'
                                 ? t('common.fields.income')
@@ -68,20 +68,27 @@
                         prefix="$"
                         inputmode="decimal"
                         :rules="[amountRule]" />
-                    <template v-if="modal === 'expense'">
+                    <template v-if="modal === 'expense' || modal === 'income'">
                         <q-input
                             :model-value="form.payee"
                             @update:model-value="updateField('payee', $event)"
                             outlined
-                            :label="t('common.fields.payee')"
+                            :label="
+                                modal === 'income'
+                                    ? t('income.source')
+                                    : t('common.fields.payee')
+                            "
                             autofocus
                             maxlength="100"
                             :rules="[
                                 value =>
                                     Boolean(value?.trim()) ||
-                                    t('editor.validation.payeeRequired')
+                                    (modal === 'income'
+                                        ? t('income.sourceRequired')
+                                        : t('editor.validation.payeeRequired'))
                             ]" />
                         <q-select
+                            v-if="modal === 'expense'"
                             :model-value="form.categoryId"
                             @update:model-value="
                                 updateField('categoryId', $event)
@@ -168,7 +175,7 @@ const modalTitle = computed(
         ({
             budget: t("files.actions.newBudget"),
             rename: t("files.actions.renameBudget"),
-            income: t("summary.monthlyIncome"),
+            income: props.editing ? t("income.edit") : t("income.add"),
             group: props.editing
                 ? t("budget.groups.renameGroup")
                 : t("budget.groups.addGroup"),
@@ -193,7 +200,9 @@ const submitLabel = computed(
         ({
             budget: t("files.actions.createBudget"),
             rename: t("editor.actions.updateName"),
-            income: t("editor.actions.updateIncome"),
+            income: props.editing
+                ? t("editor.actions.updateIncome")
+                : t("income.add"),
             group: props.editing
                 ? t("editor.actions.updateGroup")
                 : t("budget.groups.addGroup"),
@@ -229,7 +238,8 @@ const modalDescription = computed(
 function amountRule(value: string) {
     try {
         const amount = parseMoney(value);
-        return modal.value === "expense" && amount === 0
+        return (modal.value === "expense" || modal.value === "income") &&
+            amount === 0
             ? t("editor.validation.positiveAmount")
             : true;
     } catch {

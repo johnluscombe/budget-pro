@@ -127,7 +127,7 @@ export function useBudgetPage() {
     }
     function ensureMonth(budget = document.value) {
         return (budget.months[selectedMonth.value] ||= {
-            income: 0,
+            incomes: [],
             allocations: {},
             transactions: []
         });
@@ -139,10 +139,7 @@ export function useBudgetPage() {
         formError.value = "";
         Object.assign(form, {
             name: type === "rename" ? document.value.name : "",
-            amount:
-                type === "income"
-                    ? (activeMonth.value.income / 100).toFixed(2)
-                    : "",
+            amount: "",
             groupId,
             categoryId: categories.value[0]?.id || "",
             payee: "",
@@ -189,6 +186,32 @@ export function useBudgetPage() {
             amount: (transaction.amount / 100).toFixed(2)
         });
     }
+    function editIncome(id: string) {
+        const entry = activeMonth.value.incomes.find(item => item.id === id);
+        if (!entry || readOnly.value || busy.value) return;
+        showModal("income");
+        editingId.value = id;
+        Object.assign(form, {
+            amount: (entry.amount / 100).toFixed(2),
+            payee: entry.source,
+            date: entry.date,
+            note: entry.note
+        });
+    }
+    function removeIncome(id: string) {
+        const entry = activeMonth.value.incomes.find(item => item.id === id);
+        askDelete(
+            t("income.deleteTitle"),
+            t("income.deleteDescription", {
+                source: entry?.source ?? t("income.source")
+            }),
+            () => {
+                ensureMonth().incomes = activeMonth.value.incomes.filter(
+                    item => item.id !== id
+                );
+            }
+        );
+    }
     async function submitForm() {
         if (
             busy.value ||
@@ -204,8 +227,20 @@ export function useBudgetPage() {
             }
             const candidate: BudgetDocument = validateBudget(document.value);
             if (modal.value === "rename") candidate.name = form.name.trim();
-            if (modal.value === "income")
-                ensureMonth(candidate).income = parseMoney(form.amount);
+            if (modal.value === "income") {
+                const entry = {
+                    id: editingId.value || crypto.randomUUID(),
+                    amount: parseMoney(form.amount),
+                    date: form.date,
+                    source: form.payee.trim(),
+                    note: form.note.trim()
+                };
+                const month = ensureMonth(candidate);
+                month.incomes = month.incomes.filter(
+                    item => item.id !== entry.id
+                );
+                month.incomes.push(entry);
+            }
             if (modal.value === "group") {
                 if (editingId.value) {
                     const group = candidate.groups.find(
@@ -375,6 +410,8 @@ export function useBudgetPage() {
         editCategory,
         planCategory,
         editExpense,
+        editIncome,
+        removeIncome,
         submitForm,
         deleteConfirmation,
         deleteTitle,

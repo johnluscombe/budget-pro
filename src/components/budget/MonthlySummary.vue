@@ -12,7 +12,7 @@
                     flat
                     round
                     dense
-                    icon="edit"
+                    icon="add"
                     size="sm"
                     :aria-label="t('summary.editMonthlyIncome')"
                     data-testid="edit-income"
@@ -46,20 +46,20 @@
             :class="[
                 'summary-card',
                 'remaining-card',
-                { 'over-budget': totals.remaining < 0 }
+                { 'over-budget': totals.leftToBudget < 0 }
             ]"
             data-testid="summary-remaining">
             <div class="summary-top">
-                <span>{{ t("summary.leftThisMonth") }}</span>
+                <span>{{ t("summary.readyToAssign") }}</span>
                 <q-icon name="account_balance_wallet" class="summary-symbol" />
             </div>
-            <div class="summary-value">{{ money(totals.remaining) }}</div>
+            <div class="summary-value">{{ money(totals.leftToBudget) }}</div>
             <div class="summary-caption">
                 <span class="small-dot" />
                 {{
-                    totals.remaining < 0
-                        ? t("summary.overspent")
-                        : t("summary.remainingCaption")
+                    totals.leftToBudget < 0
+                        ? t("summary.overAssigned")
+                        : t("summary.assignCaption")
                 }}
             </div>
         </article>

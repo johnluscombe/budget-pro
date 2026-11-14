@@ -246,8 +246,9 @@ describe("advisory budget locks", () => {
                 async (...args: Parameters<typeof fs.writeFile>) => {
                     await fs.writeFile(...args);
                     if (
-                        String(args[0]).startsWith(filename + ".") &&
-                        String(args[0]).endsWith(".tmp")
+                        typeof args[0] === "string" &&
+                        args[0].startsWith(filename + ".") &&
+                        args[0].endsWith(".tmp")
                     ) {
                         await fs.writeFile(
                             budgetLockPath(filename),

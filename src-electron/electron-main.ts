@@ -136,6 +136,8 @@ function installHandlers() {
                                 : t("defaults.budgets.unnamed");
                         const safeName =
                             title
+                                // Control characters are intentionally removed from filenames.
+                                // oxlint-disable-next-line no-control-regex
                                 .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
                                 .slice(0, 100) || t("defaults.budgets.unnamed");
                         const chosen = await dialog.showSaveDialog(

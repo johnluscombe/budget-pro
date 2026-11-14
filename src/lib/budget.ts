@@ -20,14 +20,22 @@ export interface BudgetTransaction {
     note: string;
 }
 
+export interface BudgetIncome {
+    id: string;
+    amount: number;
+    date: string;
+    source: string;
+    note: string;
+}
+
 export interface BudgetMonth {
-    income: number;
+    incomes: BudgetIncome[];
     allocations: Record<string, number>;
     transactions: BudgetTransaction[];
 }
 
 export interface BudgetDocument {
-    version: 1;
+    version: 2;
     id: string;
     name: string;
     currency: "USD";
@@ -80,7 +88,7 @@ function id(): string {
 }
 
 function emptyMonth(): BudgetMonth {
-    return { income: 0, allocations: {}, transactions: [] };
+    return { incomes: [], allocations: {}, transactions: [] };
 }
 
 function validMonth(key: string): boolean {
@@ -141,7 +149,7 @@ export function createBudget(
         categories: group.categories.map(name => ({ id: id(), name }))
     }));
     const document: BudgetDocument = {
-        version: 1,
+        version: 2,
         id: id(),
         name: name.trim(),
         currency: "USD",
@@ -150,7 +158,15 @@ export function createBudget(
     };
     if (sample) {
         const month = document.months[key]!;
-        month.income = 580000;
+        month.incomes = [
+            {
+                id: id(),
+                amount: 580000,
+                date: `${key}-01`,
+                source: t("income.sampleSource"),
+                note: ""
+            }
+        ];
         const planned = [
             180000, 60000, 25000, 20000, 25000, 15000, 10000, 5000, 50000,
             30000, 40000
@@ -206,12 +222,16 @@ export function summary(document: BudgetDocument, key: string): MonthlySummary {
         (total, transaction) => total + transaction.amount,
         0
     );
+    const income = month.incomes.reduce(
+        (total, entry) => total + entry.amount,
+        0
+    );
     return {
-        income: month.income,
+        income,
         planned,
         spent,
-        remaining: month.income - spent,
-        leftToBudget: month.income - planned
+        remaining: income - spent,
+        leftToBudget: income - planned
     };
 }
 
@@ -316,7 +336,7 @@ function array(value: unknown, label: string): unknown[] {
 /** Validate and copy an untrusted file before it enters application state. */
 export function validateBudget(value: unknown): BudgetDocument {
     const data = object(value, "document");
-    if (data.version !== 1)
+    if (data.version !== 1 && data.version !== 2)
         throw new Error(t("validation.budget.unsupportedVersion"));
     if (data.currency !== "USD")
         throw new Error(t("validation.budget.unsupportedCurrency"));
@@ -420,7 +440,44 @@ export function validateBudget(value: unknown): BudgetDocument {
                     };
                 }
             );
-            const income = amount(month.income, "income");
+            const rawIncomes =
+                data.version === 1
+                    ? amount(month.income, "income") > 0
+                        ? [
+                              {
+                                  id: `legacy-income-${documentId}-${key}`,
+                                  amount: month.income,
+                                  date: `${key}-01`,
+                                  source: t("income.legacySource"),
+                                  note: ""
+                              }
+                          ]
+                        : []
+                    : array(month.incomes, "incomes");
+            const incomes = rawIncomes.map(value => {
+                const entry = object(value, "income entry");
+                const date = string(entry.date, "income date");
+                const parsedDate = new Date(`${date}T12:00:00.000Z`);
+                if (
+                    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+                    !date.startsWith(`${key}-`) ||
+                    !Number.isFinite(parsedDate.getTime()) ||
+                    parsedDate.toISOString().slice(0, 10) !== date
+                ) {
+                    throw new Error(t("validation.budget.invalidIncomeDate"));
+                }
+                return {
+                    id: takeId(entry.id, "income ID"),
+                    amount: amount(entry.amount, "income amount", true),
+                    date,
+                    source: string(entry.source, "income source"),
+                    note: string(entry.note, "income note", true)
+                };
+            });
+            const totalIncome = incomes.reduce(
+                (total, entry) => total + entry.amount,
+                0
+            );
             // Totals must also stay exact even if individual values are valid integers.
             const totalPlanned = Object.values(allocations).reduce(
                 (total, value) => total + value,
@@ -431,16 +488,17 @@ export function validateBudget(value: unknown): BudgetDocument {
                 0
             );
             if (
+                !Number.isSafeInteger(totalIncome) ||
                 !Number.isSafeInteger(totalPlanned) ||
                 !Number.isSafeInteger(totalSpent)
             ) {
                 throw new Error(t("validation.budget.totalTooLarge"));
             }
-            return [key, { income, allocations, transactions }];
+            return [key, { incomes, allocations, transactions }];
         })
     );
     return {
-        version: 1,
+        version: 2,
         id: documentId,
         name: string(data.name, t("validation.fields.budgetName")),
         currency: "USD",

@@ -27,15 +27,17 @@ The first launch shows clearly labeled sample data. Choose **New budget** to sta
 ## Budgeting
 
 - Create, rename, and delete groups and categories. Move categories between groups without losing their monthly history.
-- Select a month, set monthly income, and click a category's planned amount to edit it.
+- Select a month and add income entries with a source, date, amount, and optional note. Their total funds the month’s category allocations. Click a category’s planned amount to assign money; the “left to assign” amount updates as you go. Income entries can be edited or deleted.
 - Add, edit, search, and delete expense transactions. Expense dates must fall within the selected month.
-- Monthly totals show income, planned amounts, spending, and remaining income. Each category shows its planned, spent, and available amounts.
+- Monthly totals show income received, planned amounts, spending, and money ready to assign. Each category shows its planned, spent, and available amounts.
 - Plans and transactions are independent for each month. Group and category names apply to the whole file. There is no automatic rollover.
 - Categories with transaction history cannot be deleted until those transactions are moved or removed.
 
 Amounts use USD and are stored as integer cents to avoid floating point rounding errors. Savings contributions can be recorded as expenses in a savings category.
 
 ## Budget files
+
+Existing budgets migrate each monthly income total into a “Previous monthly income” entry dated the first of that month. New saves use file format version 2, which requires this version of Budget Pro or later. Income and allocations remain monthly; balances do not roll forward automatically. Over-allocation is shown so you can adjust categories.
 
 **Save budget** writes a versioned `.budget.json` file. **More file options → Save as…** creates another copy. File actions are also available in the native File menu with standard keyboard shortcuts. Save and Open use native desktop file dialogs.
 

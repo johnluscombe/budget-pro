@@ -151,9 +151,12 @@ export default {
     },
     summary: {
         label: "Monthly summary",
+        readyToAssign: "Ready to assign",
+        overAssigned: "More assigned than received. Adjust your categories.",
+        assignCaption: "Income received minus category allocations",
         monthlyIncome: "Monthly income",
-        editMonthlyIncome: "Edit monthly income",
-        incomeCaption: "Your starting point this month",
+        editMonthlyIncome: "Add income",
+        incomeCaption: "Total received from your income entries",
         totalPlanned: "Total planned",
         categoryCount: "Across {count} budget categories",
         spentSoFar: "Spent so far",
@@ -179,6 +182,23 @@ export default {
                 "Your plan exceeds your income. Adjust a few categories to find your balance.",
             tip: "Small, thoughtful choices today make space for your plans tomorrow."
         }
+    },
+    income: {
+        title: "Income entries",
+        description:
+            "Record money received this month, then assign it to your categories.",
+        add: "Add income",
+        edit: "Edit income",
+        source: "Source",
+        sourceRequired: "Please enter an income source",
+        empty: "Add your first income entry to fund this month’s categories.",
+        editLabel: "Edit income {source}",
+        deleteLabel: "Delete income {source}",
+        deleteTitle: "Delete this income?",
+        deleteDescription:
+            "Remove income from {source}? This reduces the amount available to assign and may leave your categories over-allocated.",
+        legacySource: "Previous monthly income",
+        sampleSource: "Paycheck"
     },
     transactions: {
         addExpense: "Add expense",
@@ -206,7 +226,7 @@ export default {
             updateExpense: "Update expense"
         },
         descriptions: {
-            income: "How much income are you planning for {month}?",
+            income: "Record income received in {month}. It becomes available to assign to categories.",
             plan: "Set aside money for {category} in {month}.",
             expense:
                 "Record spending for {month}. It will update your available amounts.",
@@ -322,6 +342,8 @@ export default {
                 "Invalid budget: allocation category does not exist.",
             transactionCategoryMissing:
                 "Invalid budget: transaction category does not exist.",
+            invalidIncomeDate:
+                "Invalid budget: income date must be a real date in its month.",
             invalidTransactionDate:
                 "Invalid budget: transaction date must be a real date in its month.",
             totalTooLarge: "Invalid budget: monthly total is too large."
