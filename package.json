@@ -30,7 +30,7 @@
         "test:coverage": "vitest run --coverage && npm run coverage:report",
         "test:e2e": "npm run build:electron:dir && playwright test",
         "test:e2e:only": "playwright test",
-        "coverage:report": "nyc report",
+        "coverage:report": "nyc report && node scripts/generate-coverage-badge.mjs",
         "dev:browser": "quasar dev"
     },
     "dependencies": {

@@ -3,7 +3,7 @@
 # Budget Pro
 
 [![CI](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml)
-[![Coverage: NYC](https://img.shields.io/badge/coverage-NYC-brightgreen)](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml)
+[![Unit line coverage](https://raw.githubusercontent.com/johnluscombe/budget-pro/coverage-badge/coverage.svg)](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml)
 
 A personal budget desktop application built with Quasar, Vue 3, TypeScript, and Electron. Budget files stay on your device; no account or server is required.
 
@@ -91,6 +91,8 @@ After the build and test jobs pass, the workflow packages desktop applications o
 
 These are unsigned application bundles, not installers. Keep the extracted application and its supporting files together. The `.tar.gz` archives preserve executable permissions and symlinks on macOS and Linux. Artifacts belong to individual workflow runs; they are not published as GitHub Releases.
 
-Coverage is reported locally by [NYC](https://github.com/istanbuljs/nyc). Vitest collects V8 coverage and writes Istanbul-compatible JSON to `.nyc_output/`; NYC generates the terminal table, HTML report, LCOV data, and JSON summary in `coverage/`. GitHub Actions publishes the summary and the `unit-coverage` artifact for all runs, including fork pull requests. No coverage service account, upload token, or OIDC permission is required. The README's NYC badge links to the workflow reports; NYC does not host a live percentage badge.
+Coverage is reported locally by [NYC](https://github.com/istanbuljs/nyc). Vitest collects V8 coverage and writes Istanbul-compatible JSON to `.nyc_output/`; NYC generates the terminal table, HTML report, LCOV data, and JSON summary in `coverage/`. GitHub Actions publishes the summary and the `unit-coverage` artifact for all runs, including fork pull requests. No coverage service account, upload token, or OIDC permission is required.
+
+The README badge displays NYC's **unit line coverage percentage** from the latest successful build on `main`. `npm run coverage:report` also generates `coverage/coverage.svg`. A dedicated CI job publishes that SVG to the `coverage-badge` branch using the built-in GitHub token; only this job has repository write permission. Pull requests never update the badge. It populates after the first successful CI run with this workflow and may take a few minutes for GitHub's image cache to refresh.
 
 NYC 17.1 uses a scoped UUID 11 override in `package.json` to address its process-info dependency's security advisory while retaining the CommonJS API it uses.
