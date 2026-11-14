@@ -1,0 +1,107 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    CI: "true"
+
+jobs:
+    build-and-test:
+        name: Build, unit tests, and coverage
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: read
+            id-token: write # Codecov OIDC authentication; no upload secret needed.
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: "24"
+                  cache: npm
+                  cache-dependency-path: |
+                      package-lock.json
+                      src-electron/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Install Electron workspace dependencies
+              run: npm ci --prefix src-electron
+            - name: Typecheck
+              run: npm run typecheck
+            - name: Unit tests with coverage
+              id: coverage
+              run: npm run test:coverage
+            - name: Write coverage to the workflow summary
+              if: ${{ !cancelled() && steps.coverage.outcome != 'skipped' && hashFiles('coverage/coverage-summary.json') != '' }}
+              run: node scripts/report-coverage.mjs
+            - name: Upload coverage reports
+              if: ${{ !cancelled() && steps.coverage.outcome != 'skipped' }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: unit-coverage
+                  path: coverage/
+                  if-no-files-found: warn
+                  retention-days: 14
+            - name: Publish coverage to Codecov
+              if: ${{ steps.coverage.outcome == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+              uses: codecov/codecov-action@v7
+              with:
+                  use_oidc: true
+                  files: coverage/lcov.info
+                  disable_search: true
+                  flags: unit
+                  fail_ci_if_error: false
+            - name: Build browser application
+              run: npm run build
+            - name: Build Electron application
+              run: npm run build:electron:dir
+            - name: Upload browser build
+              uses: actions/upload-artifact@v7
+              with:
+                  name: browser-build
+                  path: dist/spa/
+                  if-no-files-found: error
+                  retention-days: 7
+
+    electron-e2e:
+        name: Electron E2E tests
+        runs-on: macos-latest
+        timeout-minutes: 20
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: "24"
+                  cache: npm
+                  cache-dependency-path: |
+                      package-lock.json
+                      src-electron/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Install Electron workspace dependencies
+              run: npm ci --prefix src-electron
+            - name: Build Electron and run Playwright
+              run: npm run test:e2e
+            - name: Upload Playwright screenshots and failure traces
+              if: ${{ !cancelled() }}
+              uses: actions/upload-artifact@v7
+              with:
+                  name: electron-test-results
+                  path: test-results/
+                  if-no-files-found: ignore
+                  retention-days: 14

@@ -8,6 +8,10 @@ node_modules
 # Quasar core related directories
 .quasar
 /dist
+/coverage
+/test-results
+/playwright-report
+/src-electron/node_modules
 /quasar.config.*.temporary.compiled*
 
 # Cordova related directories and files

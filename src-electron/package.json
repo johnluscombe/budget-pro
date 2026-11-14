@@ -1,0 +1,11 @@
+{
+    "name": "budget-pro-electron",
+    "version": "0.0.1",
+    "private": true,
+    "description": "A private, local-first personal budget for your desktop",
+    "type": "module",
+    "devDependencies": {
+        "@electron/packager": "^20.3.0",
+        "electron": "^45.3.2"
+    }
+}

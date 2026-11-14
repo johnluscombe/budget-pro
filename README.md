@@ -1,38 +1,82 @@
-# Budget Pro (budget-pro)
+<img src="docs/images/budget-pro-icon.png" alt="Budget Pro wallet icon" width="80" height="80" />
 
-## Install the dependencies
+# Budget Pro
 
-```bash
-pnpm install
-# or: yarn/npm/bun install
-```
+[![CI](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/johnluscombe/budget-pro/branch/main/graph/badge.svg)](https://codecov.io/gh/johnluscombe/budget-pro)
 
-### Start the app in development mode (HMR, error reporting, etc.)
+A personal budget desktop application built with Quasar, Vue 3, TypeScript, and Electron. Budget files stay on your device; no account or server is required.
 
-```bash
-quasar dev
-```
+![Budget Pro showing monthly summaries, grouped budget categories, and spending breakdowns with sample data](docs/images/budget-overview.png)
 
-### Format & Lint the files
+## Get started
+
+Use Node.js 22.12+, 24, or 26 and npm.
 
 ```bash
-pnpm run lint
-# or: yarn/npm/bun run lint
+npm install
+npm run dev:electron
 ```
 
-...or just check formatting & linting:
+Quasar installs the separate Electron workspace dependencies on the first Electron launch. Electron downloads its platform runtime when first needed. For a browser preview, run `npm run dev`.
+
+The first launch shows clearly labeled sample data. Choose **New budget** to start an empty budget with starter categories, or **Open budget** to use an existing file.
+
+## Budgeting
+
+- Create, rename, and delete groups and categories. Move categories between groups without losing their monthly history.
+- Select a month, set monthly income, and click a category's planned amount to edit it.
+- Add, edit, search, and delete expense transactions. Expense dates must fall within the selected month.
+- Monthly totals show income, planned amounts, spending, and remaining income. Each category shows its planned, spent, and available amounts.
+- Plans and transactions are independent for each month. Group and category names apply to the whole file. There is no automatic rollover.
+- Categories with transaction history cannot be deleted until those transactions are moved or removed.
+
+Amounts use USD and are stored as integer cents to avoid floating point rounding errors. Savings contributions can be recorded as expenses in a savings category.
+
+## Budget files
+
+**Save budget** writes a versioned `.budget.json` file. **More file options → Save as…** creates another copy. File actions are also available in the native File menu with standard keyboard shortcuts. Save and Open use native desktop file dialogs.
+
+The application automatically reopens the last successfully opened or saved file on launch. A missing or invalid file produces a recoverable message. Files are validated before use; saves replace the destination atomically. Unsaved changes prompt before creating or opening another budget and before closing the window.
+
+The desktop renderer uses an isolated preload bridge with Node integration disabled. It cannot directly read or write arbitrary files. Only the recent file path is stored in Electron's application data directory; budgets are stored where you choose. Budget JSON files are ordinary unencrypted files.
+
+The browser preview supports JSON import/download and restores its last saved copy from local storage. Native file paths, menus, and desktop close protection require Electron.
+
+## Translations
+
+Interface text is maintained in `src/i18n/en.ts`, including labels, accessibility text, validation messages, and native Electron menus. The app currently ships in English.
+
+Messages are grouped by feature, with shared actions, fields, and accessibility labels under `common`. Use a dotted path to a message, such as `files.actions.saveBudget` or `editor.descriptions.plan`; section names alone are not valid translation keys.
+
+Use the typed `t` helper from `src/i18n` instead of adding interface strings directly to components:
+
+```ts
+t("files.actions.saveBudget");
+t("common.actions.optionsFor", { name: category.name });
+```
+
+Keep dynamic sentences together in the catalog with named placeholders such as `{name}`. TypeScript checks message keys and required parameters. Inserted user text is treated as plain text. Date and currency formatting use the shared `locale` in `src/i18n/index.ts`. Saved budget names, categories, and transaction details remain user data.
+
+## Test and build
 
 ```bash
-pnpm run lint:check
-# or: yarn/npm/bun run lint:check
+npm run typecheck
+npm test                 # Vitest domain and filesystem unit tests
+npm run test:coverage    # Vitest V8 coverage, including an HTML report
+npm run test:e2e         # Build Electron, then run Playwright against it
+npm run build            # Production browser build
+npm run build:electron   # Package a desktop application for the current OS
 ```
 
-### Build the app for production
+`npm run build:electron:dir` creates an unpackaged Electron build; `npm run test:e2e:only` tests an existing build. Desktop E2E tests need an interactive desktop (or Xvfb on Linux), use isolated temporary profiles, and stub only the native file picker results. They exercise the real preload, IPC, file writes, and relaunch behavior. Screenshots and failure traces are written to `test-results/`.
 
-```bash
-quasar build
-```
+Build artifacts go to `dist/`. Desktop packages are unsigned development builds; signing and distribution are separate release steps.
 
-### Customize the configuration
+## Continuous integration
 
-See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-config-file).
+[GitHub Actions](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml) runs on pushes to `main`, pull requests, and manual dispatch. It checks TypeScript, runs Vitest with coverage, builds the browser and Electron applications on Linux, and runs the Electron Playwright tests on macOS.
+
+Each run publishes a unit coverage table in the Actions summary, downloadable HTML/LCOV coverage reports, the browser build, and Playwright screenshots and failure traces. Unit coverage covers budget logic, translation lookup, and budget file handling; it does not measure the UI E2E tests.
+
+To enable the percentage badge, connect `johnluscombe/budget-pro` in [Codecov](https://app.codecov.io/gh/johnluscombe/budget-pro) and run the workflow on `main`. Uploads use [Codecov OIDC authentication](https://github.com/codecov/codecov-action#using-oidc), so no `CODECOV_TOKEN` secret is needed. Fork pull requests still generate coverage summaries and artifacts, but skip the external upload. Codecov upload failures do not block the build/test checks. The badges populate after their first successful runs.
