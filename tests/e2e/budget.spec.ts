@@ -481,6 +481,9 @@ test("moves a category, edits expenses, and protects transaction history during 
 });
 
 test("uses native File commands and saves safely when closing an unsaved budget", async () => {
+    await application!.evaluate(({ BrowserWindow }) => {
+        BrowserWindow.getAllWindows()[0]!.setContentSize(1100, 800);
+    });
     await clickFileMenu("New budget");
     let dialog = page.getByRole("dialog");
     await dialog
@@ -497,9 +500,10 @@ test("uses native File commands and saves safely when closing an unsaved budget"
     await expect
         .poll(() => readFile(filename, "utf8").catch(() => ""))
         .toContain("Native budget");
-    await expect(
-        page.getByText("All changes saved", { exact: true })
-    ).toBeVisible();
+    // Compact desktop layouts hide this label; its text still reflects save state.
+    const saveState = page.locator(".save-state");
+    await expect(saveState).toHaveText("All changes saved");
+    await expect(saveState).toBeHidden();
 
     const openedFile = join(directory, "opened-natively.budget.json");
     const otherBudget = JSON.parse(await readFile(filename, "utf8"));
