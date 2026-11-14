@@ -569,3 +569,117 @@ test("uses native File commands and saves safely when closing an unsaved budget"
         )
     ).toContain(70_000);
 });
+
+test("opens an already-owned budget read-only, supports a copy, and reloads after unlocking", async ({}, testInfo) => {
+    await createBudget("Shared household");
+    await setIncome("1000");
+    const filename = join(directory, "shared.budget.json");
+    const lockPath = filename + ".lock";
+    await selectSaveFile(filename);
+    await page.getByTestId("save-budget").click();
+    await expect(page.locator(".save-state")).toHaveText("All changes saved");
+    const originalLock = await readFile(lockPath, "utf8");
+
+    const environment: Record<string, string> = Object.fromEntries(
+        Object.entries(process.env).filter(
+            (entry): entry is [string, string] => entry[1] !== undefined
+        )
+    );
+    delete environment.ELECTRON_RUN_AS_NODE;
+    environment.BUDGET_PRO_USER_DATA = join(directory, "second-profile");
+    const second = await _electron.launch({
+        args: [resolve("dist/electron/UnPackaged")],
+        env: environment
+    });
+    const reader = await second.firstWindow();
+    reader.on("pageerror", error => pageErrors.push(error.message));
+    await second
+        .context()
+        .tracing.start({ screenshots: true, snapshots: true, sources: true });
+    try {
+        await second.evaluate(({ dialog }, filePath) => {
+            dialog.showOpenDialog = async () => ({
+                canceled: false,
+                filePaths: [filePath]
+            });
+            dialog.showMessageBox = async () => ({
+                response: 0,
+                checkboxChecked: false
+            });
+        }, filename);
+        await reader.getByTestId("open-budget").click();
+        await expect(reader.getByTestId("read-only-banner")).toBeVisible();
+        await expect(reader.getByTestId("edit-income")).toBeDisabled();
+        await expect(reader.getByTestId("add-group")).toBeDisabled();
+        await expect(reader.getByTestId("add-expense")).toBeDisabled();
+        await expect(
+            reader.getByRole("button", { name: "Plan Groceries", exact: true })
+        ).toBeDisabled();
+        await reader.getByTestId("unlock-budget").click();
+        await expect(reader.getByTestId("read-only-banner")).toBeVisible();
+        expect(await readFile(lockPath, "utf8")).toBe(originalLock);
+
+        const copy = join(directory, "separate-copy.budget.json");
+        await second.evaluate(({ dialog }, filePath) => {
+            dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+        }, copy);
+        await reader.getByTestId("save-budget").click();
+        await expect(reader.getByTestId("read-only-banner")).not.toBeVisible();
+        await expect(reader.getByTestId("edit-income")).toBeEnabled();
+        await expect
+            .poll(() => readFile(copy + ".lock", "utf8").catch(() => ""))
+            .not.toBe("");
+        expect(await readFile(lockPath, "utf8")).toBe(originalLock);
+
+        await reader.getByTestId("open-budget").click();
+        await expect(reader.getByTestId("read-only-banner")).toBeVisible();
+        await expect
+            .poll(() => readFile(copy + ".lock", "utf8").catch(() => ""))
+            .toBe("");
+        await setIncome("2000");
+        await page.getByTestId("save-budget").click();
+        await expect(page.locator(".save-state")).toHaveText(
+            "All changes saved"
+        );
+        // The reader still has its original snapshot until it explicitly reloads.
+        await expect(reader.getByTestId("summary-income")).toContainText(
+            "$1,000.00"
+        );
+        await application!.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0]!.close()
+        );
+        await expect
+            .poll(() => readFile(lockPath, "utf8").catch(() => ""))
+            .toBe("");
+        await second.evaluate(({ dialog }) => {
+            dialog.showMessageBox = async () => ({
+                response: 1,
+                checkboxChecked: false
+            });
+        });
+        await reader.getByTestId("unlock-budget").click();
+        await expect(reader.getByTestId("read-only-banner")).not.toBeVisible();
+        await expect(reader.getByTestId("summary-income")).toContainText(
+            "$2,000.00"
+        );
+        await expect(reader.getByTestId("edit-income")).toBeEnabled();
+        expect(await readFile(lockPath, "utf8")).not.toBe(originalLock);
+    } finally {
+        await second
+            .context()
+            .tracing.stop({
+                path: testInfo.outputPath("shared-budget-trace.zip")
+            })
+            .catch(() => undefined);
+        await second
+            .evaluate(({ BrowserWindow }) => {
+                for (const window of BrowserWindow.getAllWindows())
+                    window.destroy();
+            })
+            .catch(() => undefined);
+        await second.close().catch(() => undefined);
+    }
+    await expect
+        .poll(() => readFile(lockPath, "utf8").catch(() => ""))
+        .toBe("");
+});

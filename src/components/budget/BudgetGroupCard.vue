@@ -19,6 +19,7 @@
             <div class="group-heading-right">
                 <span>{{ money(planned) }}</span>
                 <q-btn
+                    :disable="readOnly"
                     flat
                     dense
                     round
@@ -69,6 +70,7 @@
                 </div>
                 <button
                     class="amount-button"
+                    :disabled="readOnly"
                     :aria-label="
                         t('budget.categories.plan', { name: category.name })
                     "
@@ -109,6 +111,7 @@
                     }}
                 </span>
                 <q-btn
+                    :disable="readOnly"
                     flat
                     dense
                     round
@@ -151,6 +154,7 @@
             </div>
             <button
                 class="add-category"
+                :disabled="readOnly"
                 :data-testid="`add-category-${group.id}`"
                 :aria-label="
                     t('budget.categories.addCategoryTo', { group: group.name })
@@ -174,6 +178,7 @@ import {
     type BudgetGroup
 } from "../../lib/budget";
 const props = defineProps<{
+    readOnly: boolean;
     document: BudgetDocument;
     selectedMonth: string;
     group: BudgetGroup;

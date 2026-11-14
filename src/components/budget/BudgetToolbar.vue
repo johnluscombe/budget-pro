@@ -15,22 +15,28 @@
             <span class="save-state">
                 <span :class="['state-dot', { unsaved: dirty || !filePath }]" />
                 {{
-                    dirty
-                        ? t("files.status.unsavedChanges")
-                        : filePath
-                          ? t("files.status.allChangesSaved")
-                          : t("files.status.sampleBudget")
+                    readOnly
+                        ? t("files.locks.readOnlyLabel")
+                        : dirty
+                          ? t("files.status.unsavedChanges")
+                          : filePath
+                            ? t("files.status.allChangesSaved")
+                            : t("files.status.sampleBudget")
                 }}
             </span>
             <q-btn
                 outline
                 no-caps
                 icon="save"
-                :label="t('files.actions.saveBudget')"
+                :label="
+                    readOnly
+                        ? t('files.locks.saveCopy')
+                        : t('files.actions.saveBudget')
+                "
                 data-testid="save-budget"
                 :loading="busy"
                 :disable="!ready"
-                @click="emit('save', false)" />
+                @click="emit('save', readOnly)" />
             <q-btn
                 flat
                 round
@@ -51,7 +57,11 @@
                                 {{ t("files.actions.saveAs") }}
                             </q-item-section>
                         </q-item>
-                        <q-item v-close-popup clickable @click="emit('rename')">
+                        <q-item
+                            v-close-popup
+                            clickable
+                            :disable="readOnly"
+                            @click="emit('rename')">
                             <q-item-section avatar>
                                 <q-icon name="edit" />
                             </q-item-section>
@@ -70,6 +80,7 @@
 import { t } from "../../i18n";
 
 defineProps<{
+    readOnly: boolean;
     view: "budget" | "activity";
     dirty: boolean;
     filePath: string;

@@ -12,7 +12,10 @@
             <span class="brand-dot">.</span>
         </a>
         <div class="sidebar-label">{{ t("navigation.workspaceHeading") }}</div>
-        <button class="workspace-card" @click="emit('rename')">
+        <button
+            :disabled="readOnly"
+            class="workspace-card"
+            @click="emit('rename')">
             <span class="workspace-avatar">
                 {{ name.slice(0, 1).toUpperCase() }}
             </span>
@@ -79,6 +82,7 @@ import { t } from "../../i18n";
 import { version } from "../../../package.json";
 
 defineProps<{
+    readOnly: boolean;
     name: string;
     transactionCount: number;
     ready: boolean;

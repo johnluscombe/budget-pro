@@ -19,6 +19,9 @@ export function useBudgetPage() {
     const {
         document,
         filePath,
+        readOnly,
+        lockDescription,
+        unlock,
         loadVersion,
         dirty,
         busy,
@@ -130,7 +133,8 @@ export function useBudgetPage() {
         });
     }
     function showModal(type: Modal, groupId = "") {
-        if (busy.value || !ready.value) return;
+        if (busy.value || !ready.value || (readOnly.value && type !== "budget"))
+            return;
         editingId.value = "";
         formError.value = "";
         Object.assign(form, {
@@ -185,11 +189,16 @@ export function useBudgetPage() {
             amount: (transaction.amount / 100).toFixed(2)
         });
     }
-    function submitForm() {
-        if (busy.value || !ready.value) return;
+    async function submitForm() {
+        if (
+            busy.value ||
+            !ready.value ||
+            (readOnly.value && modal.value !== "budget")
+        )
+            return;
         try {
             if (modal.value === "budget") {
-                newBudget(form.name.trim());
+                await newBudget(form.name.trim());
                 modal.value = null;
                 return;
             }
@@ -275,7 +284,7 @@ export function useBudgetPage() {
     const deleteDescription = ref("");
     let deleteAction: (() => void) | undefined;
     function askDelete(title: string, description: string, action: () => void) {
-        if (busy.value || !ready.value) return;
+        if (busy.value || !ready.value || readOnly.value) return;
         deleteTitle.value = title;
         deleteDescription.value = description;
         deleteAction = action;
@@ -316,7 +325,7 @@ export function useBudgetPage() {
         );
     }
     function confirmDelete() {
-        if (busy.value || !ready.value) return;
+        if (busy.value || !ready.value || readOnly.value) return;
         try {
             deleteAction?.();
         } catch (cause) {
@@ -329,6 +338,9 @@ export function useBudgetPage() {
     return {
         document,
         filePath,
+        readOnly,
+        lockDescription,
+        unlock,
         dirty,
         busy,
         ready,

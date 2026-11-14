@@ -85,7 +85,7 @@
             icon="add"
             :label="t('transactions.addExpense')"
             data-testid="add-expense"
-            :disable="!categoryCount"
+            :disable="readOnly || !categoryCount"
             @click="emit('addExpense')" />
         <div class="local-caption">
             <q-icon name="lock_outline" size="13px" />
@@ -100,6 +100,7 @@ import { t } from "../../i18n";
 import { computed } from "vue";
 import { money, type MonthlySummary } from "../../lib/budget";
 const props = defineProps<{
+    readOnly: boolean;
     totals: MonthlySummary;
     groupSpending: { id: string; name: string; spent: number }[];
     categoryCount: number;

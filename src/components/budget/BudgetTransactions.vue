@@ -57,6 +57,7 @@
                 −{{ money(transaction.amount) }}
             </strong>
             <q-btn
+                :disable="readOnly"
                 flat
                 dense
                 round
@@ -67,6 +68,7 @@
                 "
                 @click="emit('edit', transaction.id)" />
             <q-btn
+                :disable="readOnly"
                 flat
                 dense
                 round
@@ -89,6 +91,7 @@ import {
     type BudgetCategory
 } from "../../lib/budget";
 const props = defineProps<{
+    readOnly: boolean;
     transactions: BudgetTransaction[];
     categories: BudgetCategory[];
 }>();

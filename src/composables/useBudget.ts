@@ -7,13 +7,15 @@ import {
 } from "../lib/budget";
 
 const RECENT_KEY = "budget-pro:recent";
-type FileResult = { document: BudgetDocument; path: string; warning?: string };
+type FileResult = import("../types/budget-files").BudgetFileResult;
 
 export function useBudget() {
     const document = ref<BudgetDocument>(
         createBudget(t("defaults.budgets.sample"), undefined, true)
     );
     const filePath = ref("");
+    const readOnly = ref(false);
+    const lockDescription = ref("");
     const loadVersion = ref(0);
     const snapshot = ref(JSON.stringify(document.value));
     const dirty = computed(
@@ -30,12 +32,15 @@ export function useBudget() {
     function accept(result: FileResult) {
         document.value = validateBudget(result.document);
         filePath.value = result.path;
+        readOnly.value = Boolean(result.readOnly);
+        lockDescription.value = result.lockDescription || "";
         snapshot.value = JSON.stringify(document.value);
         loadVersion.value++;
     }
 
     async function save(saveAs = false): Promise<boolean> {
         if (busy.value || !ready.value) return false;
+        if (readOnly.value) saveAs = true;
         busy.value = true;
         error.value = "";
         try {
@@ -51,6 +56,8 @@ export function useBudget() {
                 );
                 if (!result) return false;
                 filePath.value = result.path;
+                readOnly.value = Boolean(result.readOnly);
+                lockDescription.value = result.lockDescription || "";
                 snapshot.value = JSON.stringify(
                     validateBudget(result.document)
                 );
@@ -159,12 +166,36 @@ export function useBudget() {
         });
     }
 
-    function newBudget(name: string) {
-        document.value = createBudget(name);
-        filePath.value = "";
-        snapshot.value = "";
-        loadVersion.value++;
-        notice.value = t("files.status.created");
+    async function newBudget(name: string) {
+        const next = createBudget(name);
+        busy.value = true;
+        try {
+            await window.budgetFiles?.close();
+            document.value = next;
+            filePath.value = "";
+            readOnly.value = false;
+            lockDescription.value = "";
+            snapshot.value = "";
+            loadVersion.value++;
+            notice.value = t("files.status.created");
+        } finally {
+            busy.value = false;
+        }
+    }
+
+    async function unlock() {
+        if (busy.value || !readOnly.value || !window.budgetFiles) return;
+        busy.value = true;
+        error.value = "";
+        try {
+            const result = await window.budgetFiles.unlock();
+            if (result) accept(result);
+        } catch (cause) {
+            error.value =
+                cause instanceof Error ? cause.message : t("files.errors.open");
+        } finally {
+            busy.value = false;
+        }
     }
 
     const requestNew = ref(0);
@@ -215,6 +246,9 @@ export function useBudget() {
     return {
         document,
         filePath,
+        readOnly,
+        lockDescription,
+        unlock,
         loadVersion,
         dirty,
         busy,

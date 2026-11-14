@@ -6,9 +6,13 @@ export interface BudgetFileResult {
     document: BudgetDocument;
     path: string;
     warning?: string;
+    readOnly?: boolean;
+    lockDescription?: string;
 }
 
 export interface BudgetFilesApi {
+    close(): Promise<void>;
+    unlock(): Promise<BudgetFileResult | null>;
     restore(): Promise<BudgetFileResult | null>;
     open(): Promise<BudgetFileResult | null>;
     save(

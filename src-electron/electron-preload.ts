@@ -5,6 +5,8 @@ import type { BudgetAction, BudgetFilesApi } from "../src/types/budget-files";
 const actions: BudgetAction[] = ["new", "open", "save", "save-as"];
 
 const budgetFiles: BudgetFilesApi = {
+    close: () => ipcRenderer.invoke("budget:close"),
+    unlock: () => ipcRenderer.invoke("budget:unlock"),
     restore: () => ipcRenderer.invoke("budget:restore"),
     open: () => ipcRenderer.invoke("budget:open"),
     save: (document, path, saveAs = false) =>

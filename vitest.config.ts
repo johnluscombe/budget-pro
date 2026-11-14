@@ -12,6 +12,7 @@ export default defineConfig({
             include: [
                 "src/lib/**/*.ts",
                 "src/i18n/index.ts",
+                "src-electron/file-lock.ts",
                 "src-electron/file-service.ts"
             ]
         }

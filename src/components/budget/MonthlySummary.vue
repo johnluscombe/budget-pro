@@ -8,6 +8,7 @@
             <div class="summary-value">
                 {{ money(totals.income) }}
                 <q-btn
+                    :disable="readOnly"
                     flat
                     round
                     dense
@@ -70,6 +71,7 @@ import { t } from "../../i18n";
 
 import { money, type MonthlySummary } from "../../lib/budget";
 defineProps<{
+    readOnly: boolean;
     totals: MonthlySummary;
     categoryCount: number;
     transactionCount: number;

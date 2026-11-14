@@ -41,6 +41,14 @@ Amounts use USD and are stored as integer cents to avoid floating point rounding
 
 The application automatically reopens the last successfully opened or saved file on launch. A missing or invalid file produces a recoverable message. Files are validated before use; saves replace the destination atomically. Unsaved changes prompt before creating or opening another budget and before closing the window.
 
+### Shared files and advisory locks
+
+The desktop app creates a `<budget filename>.lock` sidecar when opening a budget for editing or saving a new one. It records the owner, computer, and opening time. Another instance that finds this lock opens the budget read-only: editing is disabled, and **Save a copy** creates a separate editable budget. Locks are released when switching budgets, creating a new budget, saving to another file, or closing the window. Canceling a file dialog leaves the current lock in place.
+
+A crash can leave a lock behind. **Unlock for editing** asks for confirmation, checks that the lock has not changed since opening, and reloads the latest budget from disk before enabling edits. Confirm with the other user before removing a lock. Locks do not expire automatically, and a session that loses its lock cannot overwrite the budget.
+
+Lock files are advisory. All editors must use a version of Budget Pro with lock support; older versions and external tools do not honor these locks. Cloud synchronization delays can still allow two computers to create independent locks before syncing. Keep the budget and its lock sidecar together. The browser preview does not provide this locking feature.
+
 The desktop renderer uses an isolated preload bridge with Node integration disabled. It cannot directly read or write arbitrary files. Only the recent file path is stored in Electron's application data directory; budgets are stored where you choose. Budget JSON files are ordinary unencrypted files.
 
 The browser preview supports JSON import/download and restores its last saved copy from local storage. Native file paths, menus, and desktop close protection require Electron.

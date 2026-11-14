@@ -9,26 +9,52 @@ describe("BudgetFileService", () => {
     let directory: string;
     let userData: string;
     let budgetPath: string;
+    let services: BudgetFileService[];
+    function makeService(
+        ...args: ConstructorParameters<typeof BudgetFileService>
+    ) {
+        const service = new BudgetFileService(...args);
+        services.push(service);
+        return service;
+    }
+    async function restoreAfterClose() {
+        for (const service of services) service.close();
+        return makeService(userData).restore();
+    }
+    async function saveAndClose(
+        document: ReturnType<typeof createBudget>,
+        filePath: string
+    ) {
+        const service = makeService(userData);
+        try {
+            return await service.save(document, filePath);
+        } finally {
+            service.close();
+        }
+    }
 
     beforeEach(async () => {
+        services = [];
         directory = await fs.mkdtemp(
             path.join(os.tmpdir(), "budget-pro-files-")
         );
+        directory = await fs.realpath(directory);
         userData = path.join(directory, "profile");
         budgetPath = path.join(directory, "household.budget.json");
     });
 
     afterEach(async () => {
+        for (const service of services) service.close();
         await fs.rm(directory, { recursive: true, force: true });
     });
 
     it("returns no previous file on first launch", async () => {
-        expect(await new BudgetFileService(userData).restore()).toBeNull();
+        expect(await restoreAfterClose()).toBeNull();
     });
 
     it("saves a portable document and reopens it in a fresh service", async () => {
         const document = createBudget("Household", "2026-11");
-        const service = new BudgetFileService(userData);
+        const service = makeService(userData);
         expect(await service.save(document, budgetPath)).toEqual({
             document,
             path: budgetPath
@@ -36,7 +62,7 @@ describe("BudgetFileService", () => {
         expect(JSON.parse(await fs.readFile(budgetPath, "utf8"))).toEqual(
             document
         );
-        expect(await new BudgetFileService(userData).restore()).toEqual({
+        expect(await restoreAfterClose()).toEqual({
             document,
             path: budgetPath
         });
@@ -46,7 +72,7 @@ describe("BudgetFileService", () => {
     });
 
     it("remembers an opened file rather than an earlier saved file", async () => {
-        const service = new BudgetFileService(userData);
+        const service = makeService(userData);
         const first = createBudget("First", "2026-11");
         await service.save(first, budgetPath);
         const secondPath = path.join(directory, "second.budget.json");
@@ -57,7 +83,7 @@ describe("BudgetFileService", () => {
             path: secondPath
         });
         expect(service.currentPath).toBe(secondPath);
-        expect(await new BudgetFileService(userData).restore()).toEqual({
+        expect(await restoreAfterClose()).toEqual({
             document: second,
             path: secondPath
         });
@@ -65,7 +91,7 @@ describe("BudgetFileService", () => {
 
     it("keeps the previous document and recent location when an invalid file is opened", async () => {
         const document = createBudget("Original", "2026-11");
-        const service = new BudgetFileService(userData);
+        const service = makeService(userData);
         await service.save(document, budgetPath);
         const invalidPath = path.join(directory, "invalid.json");
         await fs.writeFile(invalidPath, '{"name":"not a budget"}');
@@ -73,14 +99,14 @@ describe("BudgetFileService", () => {
             "Choose a valid Budget Pro file"
         );
         expect(service.currentPath).toBe(budgetPath);
-        expect(await new BudgetFileService(userData).restore()).toEqual({
+        expect(await restoreAfterClose()).toEqual({
             document,
             path: budgetPath
         });
     });
 
     it("rejects malformed JSON and directories", async () => {
-        const service = new BudgetFileService(userData);
+        const service = makeService(userData);
         await fs.writeFile(budgetPath, "{");
         await expect(service.open(budgetPath)).rejects.toThrow(
             "Could not open"
@@ -90,7 +116,7 @@ describe("BudgetFileService", () => {
 
     it("rejects invalid money before changing an existing file", async () => {
         const document = createBudget("Original", "2026-11");
-        const service = new BudgetFileService(userData);
+        const service = makeService(userData);
         await service.save(document, budgetPath);
         const before = await fs.readFile(budgetPath, "utf8");
         const invalid = structuredClone(document);
@@ -101,13 +127,13 @@ describe("BudgetFileService", () => {
 
     it("preserves the previous file if atomic replacement fails and cleans temporary files", async () => {
         const document = createBudget("Original", "2026-11");
-        await new BudgetFileService(userData).save(document, budgetPath);
+        await saveAndClose(document, budgetPath);
         const before = await fs.readFile(budgetPath, "utf8");
         const brokenFs = {
             ...fs,
             rename: vi.fn().mockRejectedValue(new Error("Disk is full"))
         } as typeof fs;
-        const service = new BudgetFileService(userData, brokenFs);
+        const service = makeService(userData, brokenFs);
         await expect(
             service.save(createBudget("Changed", "2026-11"), budgetPath)
         ).rejects.toThrow("Could not save");
@@ -115,7 +141,7 @@ describe("BudgetFileService", () => {
         expect(
             (await fs.readdir(directory)).filter(file => file.endsWith(".tmp"))
         ).toEqual([]);
-        expect(await new BudgetFileService(userData).restore()).toEqual({
+        expect(await restoreAfterClose()).toEqual({
             document,
             path: budgetPath
         });
@@ -123,9 +149,9 @@ describe("BudgetFileService", () => {
 
     it("reports a missing previous file without creating or overwriting a replacement", async () => {
         const document = createBudget("Original", "2026-11");
-        await new BudgetFileService(userData).save(document, budgetPath);
+        await saveAndClose(document, budgetPath);
         await fs.unlink(budgetPath);
-        await expect(new BudgetFileService(userData).restore()).rejects.toThrow(
+        await expect(restoreAfterClose()).rejects.toThrow(
             "The file may have moved or changed"
         );
         await expect(fs.stat(budgetPath)).rejects.toMatchObject({
@@ -139,11 +165,11 @@ describe("BudgetFileService", () => {
             path.join(userData, "recent-budget.json"),
             JSON.stringify({ lastFile: "relative.json" })
         );
-        await expect(new BudgetFileService(userData).restore()).rejects.toThrow(
+        await expect(restoreAfterClose()).rejects.toThrow(
             "previous budget location is unreadable"
         );
         await fs.writeFile(path.join(userData, "recent-budget.json"), "broken");
-        await expect(new BudgetFileService(userData).restore()).rejects.toThrow(
+        await expect(restoreAfterClose()).rejects.toThrow(
             "previous budget location is unreadable"
         );
     });
@@ -154,7 +180,7 @@ describe("BudgetFileService", () => {
             ...fs,
             mkdir: vi.fn().mockRejectedValue(new Error("Read-only profile"))
         } as typeof fs;
-        const service = new BudgetFileService(userData, brokenFs);
+        const service = makeService(userData, brokenFs);
         const result = await service.save(document, budgetPath);
         expect(result).toMatchObject({
             document,
@@ -165,12 +191,12 @@ describe("BudgetFileService", () => {
         expect(JSON.parse(await fs.readFile(budgetPath, "utf8"))).toEqual(
             document
         );
-        expect(await new BudgetFileService(userData).restore()).toBeNull();
+        expect(await restoreAfterClose()).toBeNull();
     });
 
     it("opens a valid file despite unwritable recent preferences and preserves the previous remembered file", async () => {
         const previous = createBudget("Previous", "2026-11");
-        await new BudgetFileService(userData).save(previous, budgetPath);
+        await saveAndClose(previous, budgetPath);
         const next = createBudget("Next", "2026-11");
         const nextPath = path.join(directory, "next.budget.json");
         await fs.writeFile(nextPath, JSON.stringify(next));
@@ -180,7 +206,7 @@ describe("BudgetFileService", () => {
                 .fn()
                 .mockRejectedValue(new Error("Read-only preferences"))
         } as typeof fs;
-        const service = new BudgetFileService(userData, brokenFs);
+        const service = makeService(userData, brokenFs);
         const result = await service.open(nextPath);
         expect(result).toMatchObject({
             document: next,
@@ -188,7 +214,7 @@ describe("BudgetFileService", () => {
             warning: expect.stringContaining("could not be remembered")
         });
         expect(service.currentPath).toBe(nextPath);
-        expect(await new BudgetFileService(userData).restore()).toEqual({
+        expect(await restoreAfterClose()).toEqual({
             document: previous,
             path: budgetPath
         });

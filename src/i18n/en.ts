@@ -39,6 +39,33 @@ export default {
         myWorkspace: "My workspace"
     },
     files: {
+        locks: {
+            readOnlyLabel: "Read-only",
+            copyName: "{name} copy",
+            readOnly:
+                "Read-only: {owner} on {host} has this budget open. Save a copy to work independently.",
+            unavailable:
+                "Unable to create a budget lock. Check the folder permissions before editing.",
+            unreadable:
+                "The budget lock cannot be read. Check with the other user before removing it.",
+            unknownOwner: "Another user",
+            unknownComputer: "another computer",
+            lost: "The budget lock was removed or replaced. Save a copy or reopen the budget before saving.",
+            changed:
+                "The lock has changed since this budget was opened. Reopen it to check its current owner.",
+            locked: "This budget is locked by another session. Choose a different filename to save a copy.",
+            readOnlySave:
+                "This budget is read-only. Use Save a copy or unlock it before editing.",
+            unlock: "Unlock for editing",
+            unlockTitle: "Remove this budget's lock?",
+            unlockMessage:
+                "Only unlock after confirming that nobody else has this budget open.",
+            unlockDetail:
+                "A crash can leave a lock behind. Removing an active lock could allow conflicting edits. The budget will be reloaded from disk before editing.",
+            removeLock: "Remove lock and reload",
+            saveCopy: "Save a copy",
+            busy: "A budget file operation is in progress. Please wait and try again."
+        },
         actions: {
             newBudget: "New budget",
             openBudget: "Open budget",

@@ -1,6 +1,7 @@
 <template>
     <q-page class="budget-app">
         <BudgetSidebar
+            :read-only="readOnly"
             :name="document.name"
             :transaction-count="activeMonth.transactions.length"
             :ready="ready"
@@ -12,6 +13,7 @@
 
         <div class="main-shell">
             <BudgetToolbar
+                :read-only="readOnly"
                 :view="view"
                 :dirty="dirty"
                 :file-path="filePath"
@@ -21,6 +23,23 @@
                 @rename="showModal('rename')" />
 
             <main class="main-content">
+                <q-banner
+                    v-if="readOnly"
+                    class="allocation-banner"
+                    data-testid="read-only-banner"
+                    role="status">
+                    <template #avatar><q-icon name="lock" /></template>
+                    {{ lockDescription }}
+                    <template #action>
+                        <q-btn
+                            flat
+                            no-caps
+                            :label="t('files.locks.unlock')"
+                            data-testid="unlock-budget"
+                            :disable="busy"
+                            @click="unlock" />
+                    </template>
+                </q-banner>
                 <q-banner
                     v-if="error"
                     class="error-banner q-mb-md rounded-borders"
@@ -83,6 +102,7 @@
                 </div>
 
                 <MonthlySummary
+                    :read-only="readOnly"
                     :totals="totals"
                     :category-count="categories.length"
                     :transaction-count="activeMonth.transactions.length"
@@ -111,6 +131,7 @@
                                 flat
                                 no-caps
                                 icon="add"
+                                :disable="readOnly"
                                 :label="t('budget.groups.addGroup')"
                                 data-testid="add-group"
                                 class="subtle-button"
@@ -120,6 +141,7 @@
                                 flat
                                 no-caps
                                 icon="add"
+                                :disable="readOnly"
                                 :label="t('transactions.addExpense')"
                                 @click="showModal('expense')" />
                         </div>
@@ -152,6 +174,7 @@
                                 </span>
                             </div>
                             <BudgetGroupCard
+                                :read-only="readOnly"
                                 v-for="(group, index) in document.groups"
                                 :key="group.id"
                                 :document="document"
@@ -179,6 +202,7 @@
                                 <q-btn
                                     color="primary"
                                     no-caps
+                                    :disable="readOnly"
                                     :label="t('budget.page.emptyAction')"
                                     @click="showModal('group')" />
                             </div>
@@ -189,6 +213,7 @@
                         </template>
 
                         <BudgetTransactions
+                            :read-only="readOnly"
                             v-else
                             :transactions="filteredTransactions"
                             :categories="categories"
@@ -198,6 +223,7 @@
                     </section>
 
                     <BudgetInsights
+                        :read-only="readOnly"
                         :totals="totals"
                         :group-spending="groupSpending"
                         :category-count="categories.length"
@@ -255,6 +281,9 @@ import { useBudgetPage } from "../composables/useBudgetPage";
 const {
     document,
     filePath,
+    readOnly,
+    lockDescription,
+    unlock,
     dirty,
     busy,
     ready,

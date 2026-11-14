@@ -32,6 +32,17 @@ let closeAfterSave = false;
 let closeSaveSucceeded = false;
 let allowClose = false;
 let quitting = false;
+let fileBusy = false;
+
+async function fileOperation<T>(action: () => Promise<T>): Promise<T> {
+    if (fileBusy) throw new Error(t("files.locks.busy"));
+    fileBusy = true;
+    try {
+        return await action();
+    } finally {
+        fileBusy = false;
+    }
+}
 
 function assertSender(event: IpcMainInvokeEvent | IpcMainEvent) {
     if (
@@ -48,22 +59,53 @@ function sendAction(action: BudgetAction) {
 }
 
 function installHandlers() {
+    ipcMain.handle("budget:close", event => {
+        assertSender(event);
+        if (fileBusy) throw new Error(t("files.locks.busy"));
+        files.close();
+    });
+    ipcMain.handle("budget:unlock", async event => {
+        assertSender(event);
+        return fileOperation(async () => {
+            if (!files.readOnly) return null;
+            const response = await dialog.showMessageBox(mainWindow!, {
+                type: "warning",
+                title: t("files.locks.unlockTitle"),
+                message: t("files.locks.unlockMessage"),
+                detail: t("files.locks.unlockDetail"),
+                buttons: [
+                    t("common.actions.cancel"),
+                    t("files.locks.removeLock")
+                ],
+                defaultId: 0,
+                cancelId: 0,
+                noLink: true
+            });
+            if (response.response !== 1) return null;
+            return files.unlock();
+        });
+    });
     ipcMain.handle("budget:restore", async event => {
         assertSender(event);
-        return files.restore();
+        return fileOperation(() => files.restore());
     });
 
     ipcMain.handle("budget:open", async event => {
         assertSender(event);
-        const chosen = await dialog.showOpenDialog(mainWindow!, {
-            title: t("files.actions.openBudget"),
-            properties: ["openFile"],
-            filters: [
-                { name: t("desktop.dialogs.fileFilter"), extensions: ["json"] }
-            ]
+        return fileOperation(async () => {
+            const chosen = await dialog.showOpenDialog(mainWindow!, {
+                title: t("files.actions.openBudget"),
+                properties: ["openFile"],
+                filters: [
+                    {
+                        name: t("desktop.dialogs.fileFilter"),
+                        extensions: ["json"]
+                    }
+                ]
+            });
+            if (chosen.canceled || !chosen.filePaths[0]) return null;
+            return files.open(chosen.filePaths[0]);
         });
-        if (chosen.canceled || !chosen.filePaths[0]) return null;
-        return files.open(chosen.filePaths[0]);
     });
 
     ipcMain.handle(
@@ -75,61 +117,74 @@ function installHandlers() {
             saveAs = false
         ) => {
             assertSender(event);
-            try {
-                if (
-                    requestedPath !== undefined &&
-                    requestedPath !== files.currentPath
-                ) {
-                    throw new Error(t("desktop.errors.chooseSaveDestination"));
-                }
-                let destination = requestedPath;
-                if (!destination || saveAs) {
-                    const title =
-                        typeof document?.name === "string"
-                            ? document.name
-                            : t("defaults.budgets.unnamed");
-                    const safeName =
-                        title
-                            .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
-                            .slice(0, 100) || t("defaults.budgets.unnamed");
-                    const chosen = await dialog.showSaveDialog(mainWindow!, {
-                        title: t("files.actions.saveBudget"),
-                        defaultPath:
-                            saveAs && files.currentPath
-                                ? files.currentPath
-                                : `${safeName}.budget.json`,
-                        filters: [
-                            {
-                                name: t("desktop.dialogs.fileFilter"),
-                                extensions: ["budget.json"]
-                            }
-                        ],
-                        properties: [
-                            "showOverwriteConfirmation",
-                            "createDirectory"
-                        ]
-                    });
-                    if (chosen.canceled || !chosen.filePath) {
-                        closeAfterSave = false;
-                        closeSaveSucceeded = false;
-                        quitting = false;
-                        return null;
+            return fileOperation(async () => {
+                try {
+                    if (files.readOnly) saveAs = true;
+                    if (
+                        requestedPath !== undefined &&
+                        requestedPath !== files.currentPath
+                    ) {
+                        throw new Error(
+                            t("desktop.errors.chooseSaveDestination")
+                        );
                     }
-                    destination = chosen.filePath.endsWith(".json")
-                        ? chosen.filePath
-                        : `${chosen.filePath}.budget.json`;
+                    let destination = requestedPath;
+                    if (!destination || saveAs) {
+                        const title =
+                            typeof document?.name === "string"
+                                ? document.name
+                                : t("defaults.budgets.unnamed");
+                        const safeName =
+                            title
+                                .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+                                .slice(0, 100) || t("defaults.budgets.unnamed");
+                        const chosen = await dialog.showSaveDialog(
+                            mainWindow!,
+                            {
+                                title: t("files.actions.saveBudget"),
+                                defaultPath:
+                                    files.readOnly && files.currentPath
+                                        ? path.join(
+                                              path.dirname(files.currentPath),
+                                              `${t("files.locks.copyName", { name: safeName })}.budget.json`
+                                          )
+                                        : saveAs && files.currentPath
+                                          ? files.currentPath
+                                          : `${safeName}.budget.json`,
+                                filters: [
+                                    {
+                                        name: t("desktop.dialogs.fileFilter"),
+                                        extensions: ["budget.json"]
+                                    }
+                                ],
+                                properties: [
+                                    "showOverwriteConfirmation",
+                                    "createDirectory"
+                                ]
+                            }
+                        );
+                        if (chosen.canceled || !chosen.filePath) {
+                            closeAfterSave = false;
+                            closeSaveSucceeded = false;
+                            quitting = false;
+                            return null;
+                        }
+                        destination = chosen.filePath.endsWith(".json")
+                            ? chosen.filePath
+                            : `${chosen.filePath}.budget.json`;
+                    }
+                    const result = await files.save(document, destination);
+                    // IPC resolves only after this flag is set. The renderer can then mark
+                    // its saved snapshot clean without racing the close confirmation.
+                    if (closeAfterSave) closeSaveSucceeded = true;
+                    return result;
+                } catch (error) {
+                    closeAfterSave = false;
+                    closeSaveSucceeded = false;
+                    quitting = false;
+                    throw error;
                 }
-                const result = await files.save(document, destination);
-                // IPC resolves only after this flag is set. The renderer can then mark
-                // its saved snapshot clean without racing the close confirmation.
-                if (closeAfterSave) closeSaveSucceeded = true;
-                return result;
-            } catch (error) {
-                closeAfterSave = false;
-                closeSaveSucceeded = false;
-                quitting = false;
-                throw error;
-            }
+            });
         }
     );
 
@@ -220,6 +275,10 @@ async function createWindow() {
     window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     window.webContents.on("will-navigate", event => event.preventDefault());
     window.on("close", event => {
+        if (fileBusy) {
+            event.preventDefault();
+            return;
+        }
         if (!dirty || allowClose) return;
         event.preventDefault();
         // A second close attempt must remain cancellable even if the renderer
@@ -252,6 +311,7 @@ async function createWindow() {
         }
     });
     window.on("closed", () => {
+        files.close();
         mainWindow = null;
     });
 
@@ -279,3 +339,4 @@ app.on("before-quit", () => {
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
 });
+app.on("will-quit", () => files?.close());
