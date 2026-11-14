@@ -79,4 +79,15 @@ Build artifacts go to `dist/`. Desktop packages are unsigned development builds;
 
 Each run publishes a unit coverage table in the Actions summary, downloadable HTML/LCOV coverage reports, the browser build, and Playwright screenshots and failure traces. Unit coverage covers budget logic, translation lookup, and budget file handling; it does not measure the UI E2E tests.
 
+After the build and test jobs pass, the workflow packages desktop applications on their native operating systems. Download them under **Actions → CI → a successful workflow run → Artifacts**. Desktop artifacts are retained for 30 days:
+
+| Download                         | Platform             | How to launch after extracting                   |
+| -------------------------------- | -------------------- | ------------------------------------------------ |
+| `budget-pro-darwin-arm64.tar.gz` | macOS, Apple Silicon | Open `Budget Pro.app`                            |
+| `budget-pro-darwin-x64.tar.gz`   | macOS, Intel         | Open `Budget Pro.app`                            |
+| `budget-pro-win32-x64.zip`       | Windows, x64         | Run `Budget Pro.exe` inside the extracted folder |
+| `budget-pro-linux-x64.tar.gz`    | Linux, x64           | Run `./Budget\ Pro` inside the extracted folder  |
+
+These are unsigned application bundles, not installers. Keep the extracted application and its supporting files together. The `.tar.gz` archives preserve executable permissions and symlinks on macOS and Linux. Artifacts belong to individual workflow runs; they are not published as GitHub Releases.
+
 To enable the percentage badge, connect `johnluscombe/budget-pro` in [Codecov](https://app.codecov.io/gh/johnluscombe/budget-pro) and run the workflow on `main`. Uploads use [Codecov OIDC authentication](https://github.com/codecov/codecov-action#using-oidc), so no `CODECOV_TOKEN` secret is needed. Fork pull requests still generate coverage summaries and artifacts, but skip the external upload. Codecov upload failures do not block the build/test checks. The badges populate after their first successful runs.

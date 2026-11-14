@@ -105,3 +105,65 @@ jobs:
                   path: test-results/
                   if-no-files-found: ignore
                   retention-days: 14
+
+    desktop-packages:
+        name: Package ${{ matrix.platform }} (${{ matrix.arch }})
+        needs: [build-and-test, electron-e2e]
+        runs-on: ${{ matrix.os }}
+        timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - os: ubuntu-latest
+                      platform: linux
+                      arch: x64
+                      extension: tar.gz
+                    - os: windows-latest
+                      platform: win32
+                      arch: x64
+                      extension: zip
+                    - os: macos-latest
+                      platform: darwin
+                      arch: arm64
+                      extension: tar.gz
+                    - os: macos-latest
+                      platform: darwin
+                      arch: x64
+                      extension: tar.gz
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: "24"
+                  cache: npm
+                  cache-dependency-path: |
+                      package-lock.json
+                      src-electron/package-lock.json
+            - name: Install dependencies
+              run: npm ci
+            - name: Install Electron workspace dependencies
+              run: npm ci --prefix src-electron
+            - name: Package desktop application
+              run: npm run build:electron -- --target ${{ matrix.platform }} --arch ${{ matrix.arch }}
+            - name: Archive macOS or Linux application
+              if: runner.os != 'Windows'
+              run: >-
+                  tar -czf "dist/electron/budget-pro-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz"
+                  -C dist/electron/Packaged "Budget Pro-${{ matrix.platform }}-${{ matrix.arch }}"
+            - name: Archive Windows application
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: >-
+                  Compress-Archive
+                  -LiteralPath "dist/electron/Packaged/Budget Pro-${{ matrix.platform }}-${{ matrix.arch }}"
+                  -DestinationPath "dist/electron/budget-pro-${{ matrix.platform }}-${{ matrix.arch }}.zip"
+            - name: Upload desktop application
+              uses: actions/upload-artifact@v7
+              with:
+                  path: dist/electron/budget-pro-${{ matrix.platform }}-${{ matrix.arch }}.${{ matrix.extension }}
+                  archive: false
+                  if-no-files-found: error
+                  retention-days: 30
