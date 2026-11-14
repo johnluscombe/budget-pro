@@ -3,6 +3,7 @@ name: CI
 on:
     push:
         branches: [main]
+        tags: ["v*"]
     pull_request:
     workflow_dispatch:
 
@@ -32,6 +33,9 @@ jobs:
                   cache-dependency-path: |
                       package-lock.json
                       src-electron/package-lock.json
+            - name: Verify release version and notes
+              if: startsWith(github.ref, 'refs/tags/')
+              run: node scripts/verify-release-version.mjs
             - name: Install dependencies
               run: npm ci
             - name: Install Electron workspace dependencies
@@ -178,3 +182,74 @@ jobs:
                   archive: false
                   if-no-files-found: error
                   retention-days: 30
+
+    release:
+        name: Publish GitHub release
+        needs: desktop-packages
+        if: startsWith(github.ref, 'refs/tags/v')
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: "24"
+                  package-manager-cache: false
+            - name: Verify release metadata
+              run: node scripts/verify-release-version.mjs
+            - uses: actions/download-artifact@v8
+              with:
+                  pattern: budget-pro-*
+                  merge-multiple: true
+                  path: release-assets/
+            - name: Verify all desktop downloads are present
+              run: |
+                  node --input-type=module <<'NODE'
+                  import { readdirSync, statSync } from 'node:fs';
+                  const expected = [
+                      'budget-pro-darwin-arm64.tar.gz',
+                      'budget-pro-darwin-x64.tar.gz',
+                      'budget-pro-linux-x64.tar.gz',
+                      'budget-pro-win32-x64.zip'
+                  ];
+                  const actual = readdirSync('release-assets').sort();
+                  if (JSON.stringify(actual) !== JSON.stringify(expected.sort())) {
+                      throw new Error(`Incomplete release assets: ${actual.join(', ')}`);
+                  }
+                  for (const file of expected) {
+                      const entry = statSync(`release-assets/${file}`);
+                      if (!entry.isFile() || entry.size === 0) throw new Error(`Invalid asset: ${file}`);
+                  }
+                  NODE
+            - name: Generate archive checksums
+              working-directory: release-assets
+              run: sha256sum budget-pro-* > SHA256SUMS.txt
+            - name: Upload assets and publish the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  GH_REPO: ${{ github.repository }}
+              run: |
+                  version="$(node -p "require('./package.json').version")"
+                  prerelease=false
+                  latest=true
+                  if [[ "$version" == *-* ]]; then
+                      prerelease=true
+                      latest=false
+                  fi
+                  if gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-is-draft"; then
+                      if [[ "$(cat "$RUNNER_TEMP/release-is-draft")" != "true" ]]; then
+                          echo "Release $GITHUB_REF_NAME is already published; refusing to overwrite it."
+                          exit 1
+                      fi
+                  else
+                      gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+                          --prerelease="$prerelease" --title "Budget Pro $version" \
+                          --notes-file "docs/releases/$version.md"
+                  fi
+                  gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+                  gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease="$prerelease" --latest="$latest"
+                  gh release view "$GITHUB_REF_NAME" --json url --jq .url

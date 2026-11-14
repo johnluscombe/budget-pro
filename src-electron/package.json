@@ -1,6 +1,6 @@
 {
     "name": "budget-pro-electron",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "private": true,
     "description": "A private, local-first personal budget for your desktop",
     "type": "module",

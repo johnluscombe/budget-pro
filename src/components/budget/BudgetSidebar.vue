@@ -68,7 +68,7 @@
             <div class="sidebar-footer">
                 <span class="version-dot" />
                 Budget Pro
-                <span>v0.0.1</span>
+                <span>v{{ version }}</span>
             </div>
         </div>
     </aside>
@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { t } from "../../i18n";
+import { version } from "../../../package.json";
 
 defineProps<{
     name: string;

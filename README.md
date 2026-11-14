@@ -7,6 +7,8 @@
 
 A personal budget desktop application built with Quasar, Vue 3, TypeScript, and Electron. Budget files stay on your device; no account or server is required.
 
+Download version **0.1.0** from [GitHub Releases](https://github.com/johnluscombe/budget-pro/releases/tag/v0.1.0). See the [release notes](docs/releases/0.1.0.md) for features and current limitations.
+
 ![Budget Pro showing monthly summaries, grouped budget categories, and spending breakdowns with sample data](docs/images/budget-overview.png)
 
 ## Get started
@@ -89,7 +91,11 @@ After the build and test jobs pass, the workflow packages desktop applications o
 | `budget-pro-win32-x64.zip`       | Windows, x64         | Run `Budget Pro.exe` inside the extracted folder |
 | `budget-pro-linux-x64.tar.gz`    | Linux, x64           | Run `./Budget\ Pro` inside the extracted folder  |
 
-These are unsigned application bundles, not installers. Keep the extracted application and its supporting files together. The `.tar.gz` archives preserve executable permissions and symlinks on macOS and Linux. Artifacts belong to individual workflow runs; they are not published as GitHub Releases.
+These are unsigned application bundles, not installers. Keep the extracted application and its supporting files together. The `.tar.gz` archives preserve executable permissions and symlinks on macOS and Linux. Branch builds are retained as workflow artifacts; version tags also publish permanent downloads and checksums as GitHub Releases.
+
+## Releasing a version
+
+Update the version in both package manifests and lockfiles, add `docs/releases/<version>.md`, and commit the changes. Create an annotated `v<version>` tag and push the commit and tag. CI verifies that the tag, package versions, and release notes agree, runs the build and tests, and packages all four desktop downloads. It uploads the archives and `SHA256SUMS.txt` to a draft release, then publishes only after the uploads succeed. Versions containing a hyphen are marked as prereleases.
 
 Coverage is reported locally by [NYC](https://github.com/istanbuljs/nyc). Vitest collects V8 coverage and writes Istanbul-compatible JSON to `.nyc_output/`; NYC generates the terminal table, HTML report, LCOV data, and JSON summary in `coverage/`. GitHub Actions publishes the summary and the `unit-coverage` artifact for all runs, including fork pull requests. No coverage service account, upload token, or OIDC permission is required.
 
