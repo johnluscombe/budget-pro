@@ -21,9 +21,6 @@ jobs:
         name: Build, unit tests, and coverage
         runs-on: ubuntu-latest
         timeout-minutes: 20
-        permissions:
-            contents: read
-            id-token: write # Codecov OIDC authentication; no upload secret needed.
         steps:
             - uses: actions/checkout@v7
               with:
@@ -41,7 +38,7 @@ jobs:
               run: npm ci --prefix src-electron
             - name: Typecheck
               run: npm run typecheck
-            - name: Unit tests with coverage
+            - name: Unit tests with NYC coverage reports
               id: coverage
               run: npm run test:coverage
             - name: Write coverage to the workflow summary
@@ -55,15 +52,6 @@ jobs:
                   path: coverage/
                   if-no-files-found: warn
                   retention-days: 14
-            - name: Publish coverage to Codecov
-              if: ${{ steps.coverage.outcome == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-              uses: codecov/codecov-action@v7
-              with:
-                  use_oidc: true
-                  files: coverage/lcov.info
-                  disable_search: true
-                  flags: unit
-                  fail_ci_if_error: false
             - name: Build browser application
               run: npm run build
             - name: Build Electron application

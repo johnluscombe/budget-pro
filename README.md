@@ -3,7 +3,7 @@
 # Budget Pro
 
 [![CI](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/gh/johnluscombe/budget-pro/branch/main/graph/badge.svg)](https://codecov.io/gh/johnluscombe/budget-pro)
+[![Coverage: NYC](https://img.shields.io/badge/coverage-NYC-brightgreen)](https://github.com/johnluscombe/budget-pro/actions/workflows/ci.yml)
 
 A personal budget desktop application built with Quasar, Vue 3, TypeScript, and Electron. Budget files stay on your device; no account or server is required.
 
@@ -63,7 +63,8 @@ Keep dynamic sentences together in the catalog with named placeholders such as `
 ```bash
 npm run typecheck
 npm test                 # Vitest domain and filesystem unit tests
-npm run test:coverage    # Vitest V8 coverage, including an HTML report
+npm run test:coverage    # Vitest coverage collection, reported by NYC
+npm run coverage:report # Regenerate NYC reports from the last coverage run
 npm run test:e2e         # Build Electron, then run Playwright against it
 npm run build            # Production browser build
 npm run build:electron   # Package a desktop application for the current OS
@@ -90,4 +91,6 @@ After the build and test jobs pass, the workflow packages desktop applications o
 
 These are unsigned application bundles, not installers. Keep the extracted application and its supporting files together. The `.tar.gz` archives preserve executable permissions and symlinks on macOS and Linux. Artifacts belong to individual workflow runs; they are not published as GitHub Releases.
 
-To enable the percentage badge, connect `johnluscombe/budget-pro` in [Codecov](https://app.codecov.io/gh/johnluscombe/budget-pro) and run the workflow on `main`. Uploads use [Codecov OIDC authentication](https://github.com/codecov/codecov-action#using-oidc), so no `CODECOV_TOKEN` secret is needed. Fork pull requests still generate coverage summaries and artifacts, but skip the external upload. Codecov upload failures do not block the build/test checks. The badges populate after their first successful runs.
+Coverage is reported locally by [NYC](https://github.com/istanbuljs/nyc). Vitest collects V8 coverage and writes Istanbul-compatible JSON to `.nyc_output/`; NYC generates the terminal table, HTML report, LCOV data, and JSON summary in `coverage/`. GitHub Actions publishes the summary and the `unit-coverage` artifact for all runs, including fork pull requests. No coverage service account, upload token, or OIDC permission is required. The README's NYC badge links to the workflow reports; NYC does not host a live percentage badge.
+
+NYC 17.1 uses a scoped UUID 11 override in `package.json` to address its process-info dependency's security advisory while retaining the CommonJS API it uses.

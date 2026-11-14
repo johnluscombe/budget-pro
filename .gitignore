@@ -9,6 +9,7 @@ node_modules
 .quasar
 /dist
 /coverage
+/.nyc_output
 /test-results
 /playwright-report
 /src-electron/node_modules

@@ -6,7 +6,9 @@ export default defineConfig({
         include: ["tests/unit/**/*.test.ts"],
         coverage: {
             provider: "v8",
-            reporter: ["text", "html", "lcov", "json-summary"],
+            // NYC consumes this Istanbul-compatible data and generates the reports.
+            reportsDirectory: ".nyc_output",
+            reporter: ["json"],
             include: [
                 "src/lib/**/*.ts",
                 "src/i18n/index.ts",

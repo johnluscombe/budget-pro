@@ -1,0 +1,6 @@
+{
+    "temp-dir": ".nyc_output",
+    "report-dir": "coverage",
+    "extension": [".ts"],
+    "reporter": ["text", "html", "lcovonly", "json-summary"]
+}
