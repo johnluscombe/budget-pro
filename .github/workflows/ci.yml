@@ -6,6 +6,11 @@ on:
         tags: ["v*"]
     pull_request:
     workflow_dispatch:
+        inputs:
+            release_tag:
+                description: "Existing version tag to build and publish (leave blank for CI)"
+                required: false
+                type: string
 
 permissions:
     contents: read
@@ -25,6 +30,7 @@ jobs:
         steps:
             - uses: actions/checkout@v7
               with:
+                  ref: ${{ inputs.release_tag || github.ref }}
                   persist-credentials: false
             - uses: actions/setup-node@v7
               with:
@@ -34,8 +40,10 @@ jobs:
                       package-lock.json
                       src-electron/package-lock.json
             - name: Verify release version and notes
-              if: startsWith(github.ref, 'refs/tags/')
-              run: node scripts/verify-release-version.mjs
+              if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
+              env:
+                  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+              run: node scripts/verify-release-version.mjs "$RELEASE_TAG"
             - name: Install dependencies
               run: npm ci
             - name: Install Electron workspace dependencies
@@ -71,7 +79,7 @@ jobs:
     coverage-badge:
         name: Publish coverage percentage badge
         needs: build-and-test
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !inputs.release_tag
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
@@ -79,6 +87,7 @@ jobs:
         steps:
             - uses: actions/checkout@v7
               with:
+                  ref: ${{ inputs.release_tag || github.ref }}
                   persist-credentials: true # Required only for pushing the badge branch.
             - uses: actions/setup-node@v7
               with:
@@ -98,6 +107,7 @@ jobs:
         steps:
             - uses: actions/checkout@v7
               with:
+                  ref: ${{ inputs.release_tag || github.ref }}
                   persist-credentials: false
             - uses: actions/setup-node@v7
               with:
@@ -149,6 +159,7 @@ jobs:
         steps:
             - uses: actions/checkout@v7
               with:
+                  ref: ${{ inputs.release_tag || github.ref }}
                   persist-credentials: false
             - uses: actions/setup-node@v7
               with:
@@ -186,25 +197,29 @@ jobs:
     release:
         name: Publish GitHub release
         needs: desktop-packages
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
             contents: write
+        env:
+            RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         steps:
             - uses: actions/checkout@v7
               with:
+                  ref: ${{ inputs.release_tag || github.ref }}
                   persist-credentials: false
             - uses: actions/setup-node@v7
               with:
                   node-version: "24"
                   package-manager-cache: false
             - name: Verify release metadata
-              run: node scripts/verify-release-version.mjs
+              run: node scripts/verify-release-version.mjs "$RELEASE_TAG"
             - uses: actions/download-artifact@v8
               with:
                   pattern: budget-pro-*
                   merge-multiple: true
+                  skip-decompress: true
                   path: release-assets/
             - name: Verify all desktop downloads are present
               run: |
@@ -240,16 +255,16 @@ jobs:
                       prerelease=true
                       latest=false
                   fi
-                  if gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-is-draft"; then
+                  if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-is-draft"; then
                       if [[ "$(cat "$RUNNER_TEMP/release-is-draft")" != "true" ]]; then
-                          echo "Release $GITHUB_REF_NAME is already published; refusing to overwrite it."
+                          echo "Release $RELEASE_TAG is already published; refusing to overwrite it."
                           exit 1
                       fi
                   else
-                      gh release create "$GITHUB_REF_NAME" --verify-tag --draft \
+                      gh release create "$RELEASE_TAG" --verify-tag --draft \
                           --prerelease="$prerelease" --title "Budget Pro $version" \
                           --notes-file "docs/releases/$version.md"
                   fi
-                  gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
-                  gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease="$prerelease" --latest="$latest"
-                  gh release view "$GITHUB_REF_NAME" --json url --jq .url
+                  gh release upload "$RELEASE_TAG" release-assets/* --clobber
+                  gh release edit "$RELEASE_TAG" --draft=false --prerelease="$prerelease" --latest="$latest"
+                  gh release view "$RELEASE_TAG" --json url --jq .url

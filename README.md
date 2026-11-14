@@ -97,6 +97,8 @@ These are unsigned application bundles, not installers. Keep the extracted appli
 
 Update the version in both package manifests and lockfiles, add `docs/releases/<version>.md`, and commit the changes. Create an annotated `v<version>` tag and push the commit and tag. CI verifies that the tag, package versions, and release notes agree, runs the build and tests, and packages all four desktop downloads. It uploads the archives and `SHA256SUMS.txt` to a draft release, then publishes only after the uploads succeed. Versions containing a hyphen are marked as prereleases.
 
+To retry publishing after a workflow fix, run CI manually from `main` and set `release_tag` to the existing tag. The workflow checks out that tag for every build and test, preserving its source and history. Leave this input blank for a normal CI run.
+
 Coverage is reported locally by [NYC](https://github.com/istanbuljs/nyc). Vitest collects V8 coverage and writes Istanbul-compatible JSON to `.nyc_output/`; NYC generates the terminal table, HTML report, LCOV data, and JSON summary in `coverage/`. GitHub Actions publishes the summary and the `unit-coverage` artifact for all runs, including fork pull requests. No coverage service account, upload token, or OIDC permission is required.
 
 The README badge displays NYC's **unit line coverage percentage** from the latest successful build on `main`. `npm run coverage:report` also generates `coverage/coverage.svg`. A dedicated CI job publishes that SVG to the `coverage-badge` branch using the built-in GitHub token; only this job has repository write permission. Pull requests never update the badge. It populates after the first successful CI run with this workflow and may take a few minutes for GitHub's image cache to refresh.
